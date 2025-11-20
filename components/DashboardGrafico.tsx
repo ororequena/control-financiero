@@ -10,10 +10,9 @@ type ProyectoFinanza = {
 
 export default function DashboardGrafico({ data }: { data: ProyectoFinanza[] }) {
   
-  // Colores para el pastel
   const COLORES = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d']
 
-  // Filtramos proyectos que no tienen movimiento para que el gráfico no se vea vacío
+  // Filtramos proyectos vacíos
   const dataActiva = data.filter(d => d.cobrado > 0 || d.gastado > 0)
 
   if (dataActiva.length === 0) {
@@ -23,7 +22,7 @@ export default function DashboardGrafico({ data }: { data: ProyectoFinanza[] }) 
   return (
     <div className="grid lg:grid-cols-2 gap-8 mb-8">
       
-      {/* GRÁFICO 1: BARRAS (Ingresos vs Gastos) */}
+      {/* GRÁFICO 1: BARRAS */}
       <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl shadow-lg">
         <h3 className="text-white font-bold mb-6 flex items-center gap-2">
           📊 Rentabilidad por Proyecto
@@ -46,7 +45,7 @@ export default function DashboardGrafico({ data }: { data: ProyectoFinanza[] }) 
         </div>
       </div>
 
-      {/* GRÁFICO 2: PASTEL (Dónde está el gasto) */}
+      {/* GRÁFICO 2: PASTEL */}
       <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl shadow-lg">
         <h3 className="text-white font-bold mb-6 flex items-center gap-2">
           🍰 Distribución de Gastos
@@ -59,7 +58,8 @@ export default function DashboardGrafico({ data }: { data: ProyectoFinanza[] }) 
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, percent }) => percent > 0.05 ? `${(percent * 100).toFixed(0)}%` : ''}
+                // AQUÍ ESTABA EL ERROR. Lo arreglamos poniendo "any" y validando con (percent || 0)
+                label={({ percent }: any) => (percent || 0) > 0.05 ? `${((percent || 0) * 100).toFixed(0)}%` : ''}
                 outerRadius={100}
                 fill="#8884d8"
                 dataKey="gastado"
