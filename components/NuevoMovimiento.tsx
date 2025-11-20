@@ -1,16 +1,12 @@
 'use client' 
 
-import { createClient } from '@supabase/supabase-js'
+// CORRECCIÓN CRÍTICA: Usamos NUESTRO cliente, no el genérico
+import { createClient } from '@/utils/supabase/client' 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { PlusCircle, Loader2 } from 'lucide-react'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
-// Definimos qué forma tiene un proyecto para que TypeScript no se queje
+// Definimos la estructura de un Proyecto
 type Proyecto = {
   id: string
   nombre: string
@@ -27,6 +23,9 @@ export default function NuevoMovimiento({
   const router = useRouter()
   const [cargando, setCargando] = useState(false)
   const [abierto, setAbierto] = useState(false)
+  
+  // Inicializamos el cliente que SÍ sabe quién eres
+  const supabase = createClient()
 
   async function guardarMovimiento(formData: FormData) {
     if (cargando) return
@@ -36,7 +35,6 @@ export default function NuevoMovimiento({
     const monto = formData.get('monto')
     const tipo = formData.get('tipo')
     const fecha = formData.get('fecha')
-    // Obtenemos el ID del proyecto (si viene vacío, enviamos null)
     const proyectoId = formData.get('proyecto_id') || null
 
     const { error } = await supabase
@@ -44,7 +42,7 @@ export default function NuevoMovimiento({
       .insert([
         {
           empresa_id: empresaId,
-          proyecto_id: proyectoId, // <--- AQUI GUARDAMOS LA RELACION
+          proyecto_id: proyectoId,
           descripcion,
           monto,
           tipo,
@@ -68,13 +66,13 @@ export default function NuevoMovimiento({
         className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium transition"
       >
         <PlusCircle size={20} />
-        Nuevo Movimiento
+        Registrar Transacción
       </button>
     )
   }
 
   return (
-    <div className="bg-gray-900 p-6 rounded-lg border border-gray-700 mb-8 shadow-2xl">
+    <div className="bg-gray-900 p-6 rounded-lg border border-gray-700 mb-8 shadow-2xl animate-in fade-in zoom-in duration-300">
       <h3 className="text-lg font-bold text-white mb-4">Registrar Transacción</h3>
       
       <form action={guardarMovimiento} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6 items-end">
@@ -91,7 +89,7 @@ export default function NuevoMovimiento({
           />
         </div>
 
-        {/* 2. SELECCION DE PROYECTO (NUEVO) */}
+        {/* 2. SELECCIÓN DE PROYECTO */}
         <div className="flex flex-col gap-1 lg:col-span-2">
           <label className="text-xs text-gray-400">Proyecto / Obra</label>
           <select name="proyecto_id" className="bg-gray-800 border border-gray-700 rounded p-2 text-white focus:border-blue-500 outline-none">
@@ -110,7 +108,7 @@ export default function NuevoMovimiento({
           <input 
             name="descripcion" 
             type="text" 
-            placeholder="Ej: Cemento, Planilla..." 
+            placeholder="Ej: Anticipo, Materiales..." 
             required 
             className="bg-gray-800 border border-gray-700 rounded p-2 text-white focus:border-blue-500 outline-none"
           />
