@@ -10,13 +10,25 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-export default function NuevoMovimiento({ empresaId }: { empresaId: string }) {
+// Definimos qué forma tiene un proyecto para que TypeScript no se queje
+type Proyecto = {
+  id: string
+  nombre: string
+  cliente: string | null
+}
+
+export default function NuevoMovimiento({ 
+  empresaId, 
+  proyectos 
+}: { 
+  empresaId: string, 
+  proyectos: Proyecto[] 
+}) {
   const router = useRouter()
   const [cargando, setCargando] = useState(false)
   const [abierto, setAbierto] = useState(false)
 
   async function guardarMovimiento(formData: FormData) {
-    // Evitamos doble clic
     if (cargando) return
     setCargando(true)
     
@@ -24,12 +36,15 @@ export default function NuevoMovimiento({ empresaId }: { empresaId: string }) {
     const monto = formData.get('monto')
     const tipo = formData.get('tipo')
     const fecha = formData.get('fecha')
+    // Obtenemos el ID del proyecto (si viene vacío, enviamos null)
+    const proyectoId = formData.get('proyecto_id') || null
 
     const { error } = await supabase
       .from('movimientos')
       .insert([
         {
           empresa_id: empresaId,
+          proyecto_id: proyectoId, // <--- AQUI GUARDAMOS LA RELACION
           descripcion,
           monto,
           tipo,
@@ -62,9 +77,9 @@ export default function NuevoMovimiento({ empresaId }: { empresaId: string }) {
     <div className="bg-gray-900 p-6 rounded-lg border border-gray-700 mb-8 shadow-2xl">
       <h3 className="text-lg font-bold text-white mb-4">Registrar Transacción</h3>
       
-      {/* CORRECCIÓN: El form empieza aquí y termina HASTA ABAJO */}
-      <form action={guardarMovimiento} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 items-end">
+      <form action={guardarMovimiento} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6 items-end">
         
+        {/* 1. Fecha */}
         <div className="flex flex-col gap-1">
           <label className="text-xs text-gray-400">Fecha</label>
           <input 
@@ -76,18 +91,32 @@ export default function NuevoMovimiento({ empresaId }: { empresaId: string }) {
           />
         </div>
 
-        <div className="flex flex-col gap-1 sm:col-span-2">
+        {/* 2. SELECCION DE PROYECTO (NUEVO) */}
+        <div className="flex flex-col gap-1 lg:col-span-2">
+          <label className="text-xs text-gray-400">Proyecto / Obra</label>
+          <select name="proyecto_id" className="bg-gray-800 border border-gray-700 rounded p-2 text-white focus:border-blue-500 outline-none">
+            <option value="">-- General / Oficina Central --</option>
+            {proyectos.map(proy => (
+              <option key={proy.id} value={proy.id}>
+                {proy.cliente} - {proy.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* 3. Descripción */}
+        <div className="flex flex-col gap-1 lg:col-span-3">
           <label className="text-xs text-gray-400">Descripción</label>
           <input 
             name="descripcion" 
             type="text" 
-            placeholder="Ej: Pago de luz..." 
+            placeholder="Ej: Cemento, Planilla..." 
             required 
-            autoFocus
             className="bg-gray-800 border border-gray-700 rounded p-2 text-white focus:border-blue-500 outline-none"
           />
         </div>
 
+        {/* 4. Tipo */}
         <div className="flex flex-col gap-1">
           <label className="text-xs text-gray-400">Tipo</label>
           <select name="tipo" className="bg-gray-800 border border-gray-700 rounded p-2 text-white focus:border-blue-500 outline-none">
@@ -96,6 +125,7 @@ export default function NuevoMovimiento({ empresaId }: { empresaId: string }) {
           </select>
         </div>
 
+        {/* 5. Monto */}
         <div className="flex flex-col gap-1">
           <label className="text-xs text-gray-400">Monto (Q)</label>
           <input 
@@ -108,8 +138,8 @@ export default function NuevoMovimiento({ empresaId }: { empresaId: string }) {
           />
         </div>
 
-        {/* CORRECCIÓN: Los botones ahora están DENTRO del form y ocupan todo el ancho */}
-        <div className="sm:col-span-2 lg:col-span-5 flex justify-end gap-3 mt-4 border-t border-gray-800 pt-4">
+        {/* Botones */}
+        <div className="sm:col-span-2 lg:col-span-6 flex justify-end gap-3 mt-4 border-t border-gray-800 pt-4">
           <button 
             type="button"
             onClick={() => setAbierto(false)}
@@ -118,16 +148,16 @@ export default function NuevoMovimiento({ empresaId }: { empresaId: string }) {
             Cancelar
           </button>
           <button 
-            type="submit" // Este type="submit" es el que activa el envío
+            type="submit"
             disabled={cargando}
             className="bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded font-medium transition flex items-center gap-2"
           >
             {cargando && <Loader2 className="animate-spin" size={16} />}
-            {cargando ? 'Guardando...' : 'Guardar Operación'}
+            {cargando ? 'Guardando...' : 'Guardar'}
           </button>
         </div>
 
-      </form> {/* El form termina aquí */}
+      </form>
     </div>
   )
 }
