@@ -1,26 +1,30 @@
 import { createClient } from '@/utils/supabase/server'
 import Link from 'next/link'
 import NuevoMovimiento from '@/components/NuevoMovimiento'
-import DashboardGrafico from '@/components/DashboardGrafico' // <--- IMPORTANTE: Traemos los gráficos
-import { Trash2, Clock, Lock, TrendingUp, Paperclip, FileText } from 'lucide-react'
+import DashboardGrafico from '@/components/DashboardGrafico'
+import { Trash2, Clock, Lock, TrendingUp, Paperclip, FileText, Printer } from 'lucide-react'
 
 export default async function EstadoCuenta({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
 
+  // 1. SEGURIDAD: Verificar usuario
   const { data: { user } } = await supabase.auth.getUser()
   const emailUsuario = user?.email || ''
   const esAdmin = emailUsuario === 'coinorte@gmail.com'
 
+  // 2. DATOS: Empresa y Proyectos
   const { data: empresa } = await supabase.from('empresas').select('*').eq('id', id).single()
   const { data: proyectosRaw } = await supabase.from('proyectos').select('id, nombre, cliente, presupuesto').eq('empresa_id', id).order('nombre')
 
+  // 3. MOVIMIENTOS: Consulta con lógica de tiempo
   let query = supabase
     .from('movimientos')
     .select(`*, proyectos ( nombre, cliente )`)
     .eq('empresa_id', id)
     .order('creado_en', { ascending: false }) 
 
+  // Si NO es admin, solo ve las últimas 24 horas
   if (!esAdmin) {
     const hace24Horas = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     query = query.gte('creado_en', hace24Horas)
@@ -28,12 +32,12 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
 
   const { data: movimientos } = await query
 
-  // Cálculos Financieros
+  // 4. CÁLCULOS FINANCIEROS
   let totalIngresosEmpresa = 0
   let totalGastosEmpresa = 0
-  const finanzasProyectos: Record<string, { nombre: string, cobrado: number, gastado: number }> = {}
   
-  // Inicializamos
+  // Preparar datos para gráficos
+  const finanzasProyectos: Record<string, { nombre: string, cobrado: number, gastado: number }> = {}
   proyectosRaw?.forEach(p => { 
     finanzasProyectos[p.id] = { nombre: p.nombre, cobrado: 0, gastado: 0 } 
   })
@@ -43,7 +47,7 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
     if (mov.tipo === 'INGRESO') totalIngresosEmpresa += monto
     else totalGastosEmpresa += monto
     
-    // Sumar a proyectos
+    // Sumar a proyectos para los gráficos
     if (mov.proyecto_id && finanzasProyectos[mov.proyecto_id]) {
       if (mov.tipo === 'INGRESO') finanzasProyectos[mov.proyecto_id].cobrado += monto
       else finanzasProyectos[mov.proyecto_id].gastado += monto
@@ -52,34 +56,49 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
   })
 
   const saldoGlobal = totalIngresosEmpresa - totalGastosEmpresa
-  
-  // Preparamos los datos para el gráfico (Convertimos el objeto a array)
   const datosParaGrafico = Object.values(finanzasProyectos)
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 p-4 md:p-8 font-sans">
+      
+      {/* BARRA SUPERIOR DE NAVEGACIÓN */}
       <div className="flex justify-between items-center mb-6">
-        <Link href="/" className="text-blue-400 hover:underline flex items-center gap-1">← Panel Principal</Link>
+        <Link href="/" className="text-blue-400 hover:underline flex items-center gap-1">
+          ← Panel Principal
+        </Link>
         <span className={`text-xs px-3 py-1 rounded-full border font-bold ${esAdmin ? 'bg-blue-900/30 border-blue-800 text-blue-200' : 'bg-gray-800 border-gray-700 text-gray-400'}`}>
           {esAdmin ? 'VISTA GERENCIAL' : 'VISTA OPERADOR'}
         </span>
       </div>
       
+      {/* ENCABEZADO PRINCIPAL */}
       <header className="mb-8 border-b border-gray-800 pb-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
           <div>
             <h1 className="text-4xl font-bold text-white tracking-tight">{empresa?.nombre}</h1>
             <p className="text-gray-500 mt-1">Panel de Control de Obras</p>
           </div>
-          <div className="text-right bg-gray-900 p-4 rounded-xl border border-gray-800 min-w-[180px]">
-            <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Flujo de Caja</p>
-            {esAdmin ? (
-              <p className={`text-3xl font-bold mt-1 ${saldoGlobal >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                Q {saldoGlobal.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
-              </p>
-            ) : (
-              <div className="flex justify-end mt-2"><Lock className="text-gray-600" /></div>
-            )}
+          
+          <div className="flex items-center gap-4">
+             {/* BOTÓN NUEVO: REPORTE PDF */}
+             <Link 
+                href={`/empresa/${id}/reporte`}
+                className="bg-white text-black hover:bg-gray-200 px-4 py-3 rounded-xl font-bold flex items-center gap-2 transition shadow-lg h-full"
+              >
+                <Printer size={20} /> Reporte PDF
+              </Link>
+
+            {/* CAJA DE SALDO */}
+            <div className="text-right bg-gray-900 p-4 rounded-xl border border-gray-800 min-w-[180px]">
+              <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Flujo de Caja</p>
+              {esAdmin ? (
+                <p className={`text-3xl font-bold mt-1 ${saldoGlobal >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  Q {saldoGlobal.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
+                </p>
+              ) : (
+                <div className="flex justify-end mt-2"><Lock className="text-gray-600" /></div>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -91,6 +110,7 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
         </section>
       )}
 
+      {/* TARJETAS DE PROYECTOS (SOLO ADMIN) */}
       {esAdmin && (
         <section className="mb-10">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><TrendingUp className="text-blue-500" /> Estado Financiero por Proyecto</h2>
@@ -140,10 +160,12 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
         </section>
       )}
 
+      {/* FORMULARIO DE REGISTRO */}
       <div className="mb-8">
         <NuevoMovimiento empresaId={id} proyectos={proyectosRaw || []} />
       </div>
 
+      {/* TABLA DE MOVIMIENTOS DETALLADA */}
       <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden shadow-xl">
         {!esAdmin && <div className="bg-blue-900/20 text-blue-200 p-3 text-sm text-center border-b border-blue-900/30 flex items-center justify-center gap-2"><Clock size={16} /><span>Vista Operador: Registros de las últimas 24 horas.</span></div>}
 
