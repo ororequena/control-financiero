@@ -1,7 +1,8 @@
 import { createClient } from '@/utils/supabase/server'
 import Link from 'next/link'
 import NuevoMovimiento from '@/components/NuevoMovimiento'
-import { Trash2, Clock, Lock, TrendingUp, AlertCircle, CheckCircle2, Paperclip, FileText } from 'lucide-react'
+import DashboardGrafico from '@/components/DashboardGrafico' // <--- IMPORTANTE: Traemos los gráficos
+import { Trash2, Clock, Lock, TrendingUp, Paperclip, FileText } from 'lucide-react'
 
 export default async function EstadoCuenta({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -27,16 +28,22 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
 
   const { data: movimientos } = await query
 
-  // Cálculos
+  // Cálculos Financieros
   let totalIngresosEmpresa = 0
   let totalGastosEmpresa = 0
-  const finanzasProyectos: Record<string, { cobrado: number, gastado: number }> = {}
-  proyectosRaw?.forEach(p => { finanzasProyectos[p.id] = { cobrado: 0, gastado: 0 } })
+  const finanzasProyectos: Record<string, { nombre: string, cobrado: number, gastado: number }> = {}
+  
+  // Inicializamos
+  proyectosRaw?.forEach(p => { 
+    finanzasProyectos[p.id] = { nombre: p.nombre, cobrado: 0, gastado: 0 } 
+  })
 
   const movimientosConSaldo = movimientos?.map((mov) => {
     const monto = Number(mov.monto)
     if (mov.tipo === 'INGRESO') totalIngresosEmpresa += monto
     else totalGastosEmpresa += monto
+    
+    // Sumar a proyectos
     if (mov.proyecto_id && finanzasProyectos[mov.proyecto_id]) {
       if (mov.tipo === 'INGRESO') finanzasProyectos[mov.proyecto_id].cobrado += monto
       else finanzasProyectos[mov.proyecto_id].gastado += monto
@@ -45,14 +52,14 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
   })
 
   const saldoGlobal = totalIngresosEmpresa - totalGastosEmpresa
+  
+  // Preparamos los datos para el gráfico (Convertimos el objeto a array)
+  const datosParaGrafico = Object.values(finanzasProyectos)
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 p-4 md:p-8 font-sans">
-      {/* Barra Superior */}
       <div className="flex justify-between items-center mb-6">
-        <Link href="/" className="text-blue-400 hover:underline flex items-center gap-1">
-          ← Panel Principal
-        </Link>
+        <Link href="/" className="text-blue-400 hover:underline flex items-center gap-1">← Panel Principal</Link>
         <span className={`text-xs px-3 py-1 rounded-full border font-bold ${esAdmin ? 'bg-blue-900/30 border-blue-800 text-blue-200' : 'bg-gray-800 border-gray-700 text-gray-400'}`}>
           {esAdmin ? 'VISTA GERENCIAL' : 'VISTA OPERADOR'}
         </span>
@@ -77,12 +84,19 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
         </div>
       </header>
 
+      {/* SECCIÓN DE GRÁFICOS (SOLO ADMIN) */}
+      {esAdmin && (
+        <section className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <DashboardGrafico data={datosParaGrafico} />
+        </section>
+      )}
+
       {esAdmin && (
         <section className="mb-10">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><TrendingUp className="text-blue-500" /> Estado Financiero por Proyecto</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {proyectosRaw?.map((proy) => {
-              const datos = finanzasProyectos[proy.id] || { cobrado: 0, gastado: 0 }
+              const datos = finanzasProyectos[proy.id] || { nombre: proy.nombre, cobrado: 0, gastado: 0 }
               const presupuesto = Number(proy.presupuesto) || 0
               const porcentajeCobrado = presupuesto > 0 ? (datos.cobrado / presupuesto) * 100 : 0
               const rentabilidad = datos.cobrado - datos.gastado
@@ -141,7 +155,6 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
                 <th className="p-4">Info</th>
                 <th className="p-4">Descripción</th>
                 <th className="p-4 text-right">Monto</th>
-                {/* Nueva Columna para evidencias */}
                 <th className="p-4 text-center">Evidencia</th> 
                 {esAdmin && <th className="p-4 text-center">Acción</th>}
               </tr>
@@ -159,7 +172,6 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
                     ) : <span className="text-gray-600 italic">-- General --</span>}
                   </td>
                   
-                  {/* Descripción con tooltip de Observaciones */}
                   <td className="p-4 text-gray-300">
                     <div className="flex flex-col">
                         <span>{mov.descripcion}</span>
@@ -175,21 +187,12 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
                     {mov.tipo === 'INGRESO' ? '+' : '-'} Q {Number(mov.monto).toLocaleString()}
                   </td>
 
-                  {/* COLUMNA EVIDENCIA (CLIP) */}
                   <td className="p-4 text-center">
                     {mov.foto_url ? (
-                        <a 
-                          href={mov.foto_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center justify-center bg-gray-800 hover:bg-blue-900 text-blue-400 p-2 rounded-full transition"
-                          title="Ver Comprobante"
-                        >
+                        <a href={mov.foto_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center bg-gray-800 hover:bg-blue-900 text-blue-400 p-2 rounded-full transition" title="Ver Comprobante">
                             <Paperclip size={16} />
                         </a>
-                    ) : (
-                        <span className="text-gray-700 opacity-20">-</span>
-                    )}
+                    ) : <span className="text-gray-700 opacity-20">-</span>}
                   </td>
                   
                   {esAdmin && (
