@@ -55,7 +55,7 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
   const saldoGlobal = totalIngresosEmpresa - totalGastosEmpresa
   const datosParaGrafico = Object.values(finanzasProyectos)
 
-  // 5. AGRUPACIÓN POR MUNI
+  // 5. AGRUPACIÓN INTELIGENTE POR MUNI (CORREGIDO PARA TYPESCRIPT)
   type GrupoProyectos = { titulo: string, lista: typeof proyectosRaw }
   
   const gruposPorMuni = proyectosRaw?.reduce((acc, proy) => {
@@ -68,7 +68,9 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
             lista: []
         };
     }
-    acc[clave]?.lista.push(proy);
+    // AQUÍ ESTABA EL ERROR: Cambiamos ?. por !. para decirle a TS que confíe en que existe.
+    acc[clave]!.lista.push(proy);
+    
     return acc;
   }, {} as Record<string, GrupoProyectos>) || {};
 
