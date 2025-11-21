@@ -55,18 +55,16 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
   const saldoGlobal = totalIngresosEmpresa - totalGastosEmpresa
   const datosParaGrafico = Object.values(finanzasProyectos)
 
-  // 5. AGRUPACIÓN INTELIGENTE POR MUNI (Corrige duplicados)
-  // Creamos un diccionario donde la clave es el nombre "Limpio" (Mayúsculas y sin espacios)
+  // 5. AGRUPACIÓN POR MUNI
   type GrupoProyectos = { titulo: string, lista: typeof proyectosRaw }
   
   const gruposPorMuni = proyectosRaw?.reduce((acc, proy) => {
     const nombreOriginal = proy.cliente || 'Otros';
-    // Normalizamos: "  Muni Flores " -> "MUNI FLORES"
     const clave = nombreOriginal.trim().toUpperCase();
 
     if (!acc[clave]) {
         acc[clave] = {
-            titulo: nombreOriginal.trim().toUpperCase(), // Usamos mayúsculas para uniformizar títulos
+            titulo: nombreOriginal.trim().toUpperCase(),
             lista: []
         };
     }
@@ -75,7 +73,6 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
   }, {} as Record<string, GrupoProyectos>) || {};
 
   const listaGrupos = Object.values(gruposPorMuni).sort((a, b) => a.titulo.localeCompare(b.titulo));
-
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 p-4 md:p-8 font-sans">
@@ -120,14 +117,14 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
         </div>
       </header>
 
-      {/* GRÁFICOS */}
+      {/* GRÁFICOS (SOLO ADMIN) */}
       {esAdmin && (
         <section className="animate-in fade-in slide-in-from-bottom-4 duration-700">
           <DashboardGrafico data={datosParaGrafico} />
         </section>
       )}
 
-      {/* LISTA DE PROYECTOS AGRUPADOS (CORREGIDA) */}
+      {/* LISTA DE PROYECTOS AGRUPADOS */}
       {esAdmin && (
         <section className="mb-10 space-y-8">
           {listaGrupos.map((grupo) => (
@@ -225,7 +222,7 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
                   </td>
 
                   <td className={`p-4 text-right font-mono font-bold ${mov.tipo === 'INGRESO' ? 'text-green-400' : 'text-red-400'}`}>
-                    {mov.tipo === 'INGRESO' ? '+' : '-'} Q {Number(mov.monto).toLocaleString()}` : ''}
+                    {mov.tipo === 'INGRESO' ? '+' : '-'} Q {Number(mov.monto).toLocaleString()}
                   </td>
 
                   <td className="p-4 text-center">
