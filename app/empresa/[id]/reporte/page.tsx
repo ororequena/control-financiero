@@ -1,6 +1,6 @@
 import { createClient } from '@/utils/supabase/server'
-import { Printer } from 'lucide-react'
 import Link from 'next/link'
+import BotonImprimir from '@/components/BotonImprimir' // <--- Importamos el componente nuevo
 
 export default async function ReporteImprimible({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -30,12 +30,12 @@ export default async function ReporteImprimible({ params }: { params: Promise<{ 
   return (
     <div className="min-h-screen bg-white text-black p-8 font-sans print:p-0">
       
-      {/* BOTONERA (Se oculta al imprimir) */}
+      {/* BOTONERA (Se oculta al imprimir gracias a la clase print:hidden en el componente) */}
       <div className="max-w-4xl mx-auto mb-8 flex justify-between items-center print:hidden">
         <Link href={`/empresa/${id}`} className="text-blue-600 hover:underline">
           ← Volver al Sistema
         </Link>
-        {/* Usamos un componente cliente pequeño para la acción de imprimir */}
+        {/* Aquí usamos el botón importado, sin lógica extra */}
         <BotonImprimir />
       </div>
 
@@ -127,18 +127,5 @@ export default async function ReporteImprimible({ params }: { params: Promise<{ 
 
       </div>
     </div>
-  )
-}
-
-// Componente CLIENTE para manejar el window.print()
-'use client'
-function BotonImprimir() {
-  return (
-    <button 
-      onClick={() => window.print()}
-      className="bg-blue-600 text-white px-6 py-2 rounded font-bold flex items-center gap-2 hover:bg-blue-700"
-    >
-      <Printer size={20} /> Imprimir / Guardar PDF
-    </button>
   )
 }
