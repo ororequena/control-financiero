@@ -34,14 +34,10 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
   // 4. CÁLCULOS
   let totalIngresosEmpresa = 0
   let totalGastosEmpresa = 0
-  let totalContratadoEmpresa = 0 // NUEVO ACUMULADOR
   
   const finanzasProyectos: Record<string, { nombre: string, cobrado: number, gastado: number }> = {}
-  
-  // Sumar presupuestos de contratos
   proyectosRaw?.forEach(p => { 
     finanzasProyectos[p.id] = { nombre: p.nombre, cobrado: 0, gastado: 0 } 
-    totalContratadoEmpresa += Number(p.presupuesto)
   })
 
   const movimientosConSaldo = movimientos?.map((mov) => {
@@ -59,8 +55,8 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
   const saldoGlobal = totalIngresosEmpresa - totalGastosEmpresa
   const datosParaGrafico = Object.values(finanzasProyectos)
 
-  // 5. AGRUPACIÓN POR MUNI (TYPE-SAFE)
-  type GrupoProyectos = { titulo: string, lista: any[] }
+  // 5. AGRUPACIÓN INTELIGENTE POR MUNI
+  type GrupoProyectos = { titulo: string, lista: typeof proyectosRaw }
   
   const gruposPorMuni = (proyectosRaw || []).reduce((acc, proy) => {
     const nombreOriginal = proy.cliente || 'Otros';
@@ -72,7 +68,7 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
             lista: []
         };
     }
-    acc[clave].lista.push(proy);
+    acc[clave]!.lista.push(proy); // Usamos !. porque ya garantizamos que existe
     return acc;
   }, {} as Record<string, GrupoProyectos>);
 
@@ -91,35 +87,22 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
         </span>
       </div>
       
-      {/* HEADER CON RESUMEN */}
+      {/* HEADER */}
       <header className="mb-8 border-b border-gray-800 pb-6">
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
           <div>
             <h1 className="text-4xl font-bold text-white tracking-tight">{empresa?.nombre}</h1>
-            <p className="text-gray-500 mt-1">Gestión de Obras</p>
+            <p className="text-gray-500 mt-1">Panel de Control de Obras</p>
           </div>
           
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-4">
              <Link 
                 href={`/empresa/${id}/reporte`}
-                className="bg-white text-black hover:bg-gray-200 px-4 py-4 rounded-xl font-bold flex items-center gap-2 transition shadow-lg h-full"
+                className="bg-white text-black hover:bg-gray-200 px-4 py-3 rounded-xl font-bold flex items-center gap-2 transition shadow-lg h-full"
               >
                 <Printer size={20} /> Reporte PDF
               </Link>
 
-            {/* KPI: TOTAL CONTRATADO (NUEVO) */}
-            <div className="text-right bg-gray-900 p-4 rounded-xl border border-gray-800 min-w-[150px]">
-              <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold text-blue-400">Contratos Activos</p>
-              {esAdmin ? (
-                <p className="text-2xl font-bold text-blue-300 mt-1">
-                  Q {totalContratadoEmpresa.toLocaleString('es-GT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                </p>
-              ) : (
-                <div className="flex justify-end mt-2"><Lock className="text-gray-600" /></div>
-              )}
-            </div>
-
-            {/* KPI: FLUJO DE CAJA */}
             <div className="text-right bg-gray-900 p-4 rounded-xl border border-gray-800 min-w-[180px]">
               <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Flujo de Caja</p>
               {esAdmin ? (
@@ -134,14 +117,14 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
         </div>
       </header>
 
-      {/* GRÁFICOS */}
+      {/* GRÁFICOS (SOLO ADMIN) */}
       {esAdmin && (
         <section className="animate-in fade-in slide-in-from-bottom-4 duration-700">
           <DashboardGrafico data={datosParaGrafico} />
         </section>
       )}
 
-      {/* LISTA AGRUPADA */}
+      {/* LISTA DE PROYECTOS AGRUPADOS */}
       {esAdmin && (
         <section className="mb-10 space-y-8">
           {listaGrupos.map((grupo) => (
@@ -160,21 +143,25 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
                             <Link 
                                 href={`/empresa/${id}/proyecto/${proy.id}`}
                                 key={proy.id} 
-                                className="bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-blue-500 transition relative overflow-hidden group cursor-pointer block"
+                                className="bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-blue-500 transition relative overflow-hidden group cursor-pointer block h-full"
                             >
                                 <div className="absolute top-0 left-0 h-1 bg-gray-800 w-full">
                                     <div className={`h-full ${porcentajeCobrado > 100 ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: `${Math.min(porcentajeCobrado, 100)}%` }}></div>
                                 </div>
                                 
                                 <div className="flex justify-between items-start mb-4">
-                                    <h3 className="font-bold text-lg text-white truncate max-w-[200px] group-hover:text-blue-400 transition">{proy.nombre}</h3>
-                                    <div className="text-right">
+                                    {/* AQUÍ ESTÁ EL CAMBIO: Quitamos 'truncate' y 'max-w' para que se lea completo */}
+                                    <h3 className="font-bold text-lg text-white leading-tight mr-2 group-hover:text-blue-400 transition">
+                                        {proy.nombre}
+                                    </h3>
+                                    
+                                    <div className="text-right shrink-0">
                                         <p className="text-xs text-gray-500">Contrato</p>
                                         <p className="font-mono font-bold text-gray-300">Q {presupuesto.toLocaleString()}</p>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4 mb-2 text-sm">
+                                <div className="grid grid-cols-2 gap-4 mb-2 text-sm mt-auto">
                                     <div className="bg-gray-950/50 p-2 rounded border border-gray-800/50">
                                         <p className="text-xs text-green-400 mb-1">Cobrado</p>
                                         <p className="font-mono font-bold text-white">Q {datos.cobrado.toLocaleString()}</p>
@@ -198,7 +185,7 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
         <NuevoMovimiento empresaId={id} proyectos={proyectosRaw || []} />
       </div>
 
-      {/* TABLA */}
+      {/* TABLA DETALLADA */}
       <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden shadow-xl">
         {!esAdmin && <div className="bg-blue-900/20 text-blue-200 p-3 text-sm text-center border-b border-blue-900/30 flex items-center justify-center gap-2"><Clock size={16} /><span>Vista Operador: Registros de las últimas 24 horas.</span></div>}
 
