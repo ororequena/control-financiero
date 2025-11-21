@@ -1,15 +1,19 @@
 import { createClient } from '@/utils/supabase/server'
 import Link from 'next/link'
-import { TrendingUp, TrendingDown, ArrowLeft, Printer, FileText } from 'lucide-react'
+import { TrendingUp, TrendingDown, ArrowLeft, Printer, FileText, Paperclip, Trash2 } from 'lucide-react'
+import NuevoMovimiento from '@/components/NuevoMovimiento' // <--- 1. IMPORTAMOS EL FORMULARIO
 
 export default async function DetalleProyecto({ params }: { params: Promise<{ id: string, proyectoId: string }> }) {
-  // IMPORTANTE: En Next.js App Router, los params pueden venir como promesa o directos.
-  // Aquí los desestructuramos con cuidado.
   const resolvedParams = await params
   const empresaId = resolvedParams.id
   const proyectoId = resolvedParams.proyectoId
 
   const supabase = await createClient()
+
+  // 0. SEGURIDAD
+  const { data: { user } } = await supabase.auth.getUser()
+  const emailUsuario = user?.email || ''
+  const esAdmin = emailUsuario === 'coinorte@gmail.com'
 
   // 1. Obtener Info del Proyecto
   const { data: proyecto } = await supabase
@@ -47,7 +51,6 @@ export default async function DetalleProyecto({ params }: { params: Promise<{ id
           <ArrowLeft size={16} /> Volver a {proyecto?.empresas?.nombre}
         </Link>
         
-        {/* Botón Reporte Específico de Proyecto */}
         <Link 
             href={`/empresa/${empresaId}/proyecto/${proyectoId}/reporte`}
             className="bg-white text-black px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 hover:bg-gray-200 transition"
@@ -112,6 +115,15 @@ export default async function DetalleProyecto({ params }: { params: Promise<{ id
         </div>
       </div>
 
+      {/* 2. AQUÍ INSERTAMOS EL FORMULARIO DE REGISTRO */}
+      {/* Le pasamos un array que solo contiene ESTE proyecto, así es fácil elegir */}
+      <div className="mb-8">
+        <NuevoMovimiento 
+            empresaId={empresaId} 
+            proyectos={[proyecto]} 
+        />
+      </div>
+
       {/* TABLA DEL PROYECTO */}
       <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden shadow-xl">
         <table className="w-full text-left text-sm">
@@ -121,7 +133,9 @@ export default async function DetalleProyecto({ params }: { params: Promise<{ id
                 <th className="p-4">Descripción</th>
                 <th className="p-4 text-right">Ingreso</th>
                 <th className="p-4 text-right">Gasto</th>
+                <th className="p-4 text-center">Evidencia</th>
                 <th className="p-4 text-right text-white">Saldo Acum.</th>
+                {esAdmin && <th className="p-4 text-center">Acción</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
@@ -138,13 +152,34 @@ export default async function DetalleProyecto({ params }: { params: Promise<{ id
                   <td className="p-4 text-right font-mono text-red-400">
                     {mov.tipo === 'GASTO' ? `Q ${Number(mov.monto).toLocaleString()}` : '-'}
                   </td>
+                  <td className="p-4 text-center">
+                    {mov.foto_url ? (
+                        <a href={mov.foto_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center bg-gray-800 hover:bg-blue-900 text-blue-400 p-2 rounded-full transition" title="Ver Comprobante">
+                            <Paperclip size={16} />
+                        </a>
+                    ) : <span className="text-gray-700 opacity-20">-</span>}
+                  </td>
                   <td className="p-4 text-right font-mono font-bold text-white">
                     Q {mov.saldo.toLocaleString()}
                   </td>
+                  
+                  {esAdmin && (
+                     <td className="p-4 text-center">
+                       <form action={async () => {
+                         'use server'
+                         const supabase = await createClient()
+                         await supabase.from('movimientos').delete().eq('id', mov.id)
+                       }}>
+                         <button className="text-gray-600 hover:text-red-500 transition opacity-0 hover:opacity-100">
+                           <Trash2 size={16} />
+                         </button>
+                       </form>
+                     </td>
+                  )}
                 </tr>
               ))}
               {movimientosCalculados?.length === 0 && (
-                  <tr><td colSpan={5} className="p-8 text-center text-gray-500">Este proyecto no tiene movimientos aún.</td></tr>
+                  <tr><td colSpan={7} className="p-8 text-center text-gray-500">Este proyecto no tiene movimientos aún.</td></tr>
               )}
             </tbody>
         </table>
