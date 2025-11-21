@@ -55,24 +55,29 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
   const saldoGlobal = totalIngresosEmpresa - totalGastosEmpresa
   const datosParaGrafico = Object.values(finanzasProyectos)
 
-  // 5. AGRUPACIÓN INTELIGENTE POR MUNI (CORREGIDO PARA TYPESCRIPT)
+  // 5. AGRUPACIÓN INTELIGENTE (CORREGIDO PARA TYPESCRIPT STRICTO)
   type GrupoProyectos = { titulo: string, lista: typeof proyectosRaw }
   
-  const gruposPorMuni = proyectosRaw?.reduce((acc, proy) => {
+  const gruposPorMuni = (proyectosRaw || []).reduce((acc, proy) => {
     const nombreOriginal = proy.cliente || 'Otros';
     const clave = nombreOriginal.trim().toUpperCase();
 
+    // Si no existe el grupo, lo creamos
     if (!acc[clave]) {
         acc[clave] = {
             titulo: nombreOriginal.trim().toUpperCase(),
             lista: []
         };
     }
-    // AQUÍ ESTABA EL ERROR: Cambiamos ?. por !. para decirle a TS que confíe en que existe.
-    acc[clave]!.lista.push(proy);
+    
+    // Accedemos de forma segura
+    const grupo = acc[clave];
+    if (grupo) {
+        grupo.lista.push(proy);
+    }
     
     return acc;
-  }, {} as Record<string, GrupoProyectos>) || {};
+  }, {} as Record<string, GrupoProyectos>);
 
   const listaGrupos = Object.values(gruposPorMuni).sort((a, b) => a.titulo.localeCompare(b.titulo));
 
