@@ -6,16 +6,20 @@ import { Save, UserPlus, Trash2, Building2, DollarSign, Users, PlusSquare, HardH
 export default async function AdminPanel() {
   const supabase = await createClient()
 
+  // 1. SEGURIDAD
   const { data: { user } } = await supabase.auth.getUser()
   if (user?.email !== 'coinorte@gmail.com') {
-    return <div className="p-10 text-white bg-black min-h-screen">⛔ ACCESO DENEGADO.</div>
+    return <div className="p-10 text-white bg-black min-h-screen">⛔ ACCESO DENEGADO. Solo Gerencia.</div>
   }
 
+  // 2. DATOS
   const { data: proyectos } = await supabase.from('proyectos').select('*, empresas(nombre)').order('empresa_id')
   const { data: accesos } = await supabase.from('accesos').select('*, empresas(nombre)').order('creado_en', { ascending: false })
   const { data: empresas } = await supabase.from('empresas').select('*').order('nombre')
 
-  // --- ACCIONES ---
+  // ------------------------------------------------------------
+  // ACCIONES (SERVER ACTIONS)
+  // ------------------------------------------------------------
 
   async function crearEmpresa(formData: FormData) {
     'use server'
@@ -25,12 +29,11 @@ export default async function AdminPanel() {
     redirect('/admin')
   }
 
-  // NUEVA ACCION: ELIMINAR EMPRESA
   async function eliminarEmpresa(formData: FormData) {
     'use server'
     const supabase = await createClient()
     const id = formData.get('id') as string
-    // OJO: Al borrar empresa, se borrarán sus proyectos y movimientos por el "cascade" de la BD
+    // OJO: Esto borrará proyectos y movimientos en cascada si la BD está configurada así
     await supabase.from('empresas').delete().eq('id', id)
     redirect('/admin')
   }
@@ -43,6 +46,15 @@ export default async function AdminPanel() {
     const presupuesto = formData.get('presupuesto')
     const empresa_id = formData.get('empresa_id')
     await supabase.from('proyectos').insert([{ nombre, cliente, presupuesto, empresa_id }])
+    redirect('/admin')
+  }
+
+  // ACCIÓN PARA BORRAR PROYECTO
+  async function eliminarProyecto(formData: FormData) {
+    'use server'
+    const supabase = await createClient()
+    const id = formData.get('id') as string
+    await supabase.from('proyectos').delete().eq('id', id)
     redirect('/admin')
   }
 
@@ -91,15 +103,16 @@ export default async function AdminPanel() {
 
         <div className="grid xl:grid-cols-2 gap-8">
           
+          {/* COLUMNA IZQUIERDA */}
           <div className="space-y-8">
-            {/* 1. NUEVA EMPRESA Y LISTADO PARA BORRAR */}
+            
+            {/* 1. EMPRESAS (CREAR Y BORRAR) */}
             <section className="bg-emerald-900/10 border border-emerald-800/50 rounded-xl p-6 shadow-lg">
               <h2 className="text-xl font-bold text-emerald-400 mb-4 flex items-center gap-2">
                 <Briefcase />
-                Empresas (Crear / Borrar)
+                Empresas
               </h2>
               
-              {/* Formulario Crear */}
               <form action={crearEmpresa} className="flex gap-4 items-end mb-6 border-b border-emerald-900/30 pb-6">
                 <div className="flex-1">
                   <label className="text-xs text-gray-400 block mb-1">Nombre Comercial</label>
@@ -110,15 +123,14 @@ export default async function AdminPanel() {
                 </button>
               </form>
 
-              {/* Lista para Borrar */}
-              <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2">
+              <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
                 <p className="text-xs text-gray-500 uppercase mb-2">Empresas Activas</p>
                 {empresas?.map(emp => (
                   <div key={emp.id} className="flex justify-between items-center bg-gray-900 p-2 rounded border border-gray-800">
                     <span className="text-sm font-medium text-white">{emp.nombre}</span>
                     <form action={eliminarEmpresa}>
                       <input type="hidden" name="id" value={emp.id} />
-                      <button className="text-red-500 hover:bg-red-900/20 p-2 rounded transition" title="Eliminar Empresa y sus datos">
+                      <button className="text-red-500 hover:bg-red-900/20 p-2 rounded transition" title="Borrar Empresa">
                         <Trash2 size={16} />
                       </button>
                     </form>
@@ -163,26 +175,48 @@ export default async function AdminPanel() {
             </section>
           </div>
 
+          {/* COLUMNA DERECHA */}
           <div className="space-y-8">
-            {/* 3. EDITAR PRESUPUESTOS */}
+            
+            {/* 3. EDITAR Y BORRAR PROYECTOS */}
             <section className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg">
               <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
                 <DollarSign className="text-green-400" />
-                Editar Presupuestos
+                Gestión de Proyectos
               </h2>
-              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                 {proyectos?.map((proy) => (
-                  <form key={proy.id} action={actualizarPresupuesto} className="bg-gray-950 p-3 rounded border border-gray-800 flex items-center justify-between gap-3">
+                  <div key={proy.id} className="bg-gray-950 p-3 rounded border border-gray-800 flex items-center justify-between gap-3">
+                    
                     <div className="flex-1 min-w-0">
                       <p className="text-[10px] text-blue-400 font-bold uppercase truncate">{proy.empresas?.nombre}</p>
-                      <p className="text-sm font-medium text-white truncate">{proy.nombre}</p>
+                      <p className="text-sm font-medium text-white truncate" title={proy.nombre}>{proy.nombre}</p>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
+
+                    {/* Editar Presupuesto */}
+                    <form action={actualizarPresupuesto} className="flex items-center gap-2">
+                      <span className="text-gray-500 text-xs">Q</span>
                       <input type="hidden" name="id" value={proy.id} />
-                      <input type="number" name="presupuesto" defaultValue={proy.presupuesto} className="bg-gray-800 text-white p-1.5 rounded w-24 text-right text-sm outline-none focus:ring-1 ring-blue-500" />
-                      <button type="submit" className="bg-green-600 p-1.5 rounded text-white"><Save size={16} /></button>
-                    </div>
-                  </form>
+                      <input 
+                        type="number" 
+                        name="presupuesto" 
+                        defaultValue={proy.presupuesto} 
+                        className="bg-gray-800 text-white p-1.5 rounded w-24 text-right text-sm outline-none focus:ring-1 ring-blue-500"
+                      />
+                      <button type="submit" className="bg-green-600 hover:bg-green-500 p-1.5 rounded text-white" title="Guardar Precio">
+                        <Save size={16} />
+                      </button>
+                    </form>
+
+                    {/* Borrar Proyecto */}
+                    <form action={eliminarProyecto}>
+                        <input type="hidden" name="id" value={proy.id} />
+                        <button type="submit" className="bg-red-900/30 hover:bg-red-600 text-red-500 hover:text-white p-1.5 rounded transition" title="Eliminar Proyecto">
+                            <Trash2 size={16} />
+                        </button>
+                    </form>
+
+                  </div>
                 ))}
               </div>
             </section>
@@ -207,6 +241,7 @@ export default async function AdminPanel() {
               </div>
             </section>
           </div>
+
         </div>
       </div>
     </div>
