@@ -117,3 +117,32 @@ export default async function ReporteProyecto({ params }: { params: Promise<{ id
                   Q {mov.saldo.toLocaleString()}
                 </td>
               </tr>
+            ))}
+            {movimientosCalculados?.length === 0 && (
+                <tr>
+                    <td colSpan={5} className="py-8 text-center text-gray-400 italic">No hay movimientos registrados en este proyecto.</td>
+                </tr>
+            )}
+          </tbody>
+        </table>
+
+        {/* PIE DE PÁGINA (Firmas) */}
+        <div className="mt-20 pt-8 border-t border-gray-300 flex justify-between print:flex break-inside-avoid">
+          <div className="text-center w-1/3">
+            <div className="border-b border-black mb-2"></div>
+            <p className="text-xs uppercase font-bold">Firma Residente</p>
+          </div>
+          <div className="text-center w-1/3">
+            <div className="border-b border-black mb-2"></div>
+            <p className="text-xs uppercase font-bold">Firma Supervisión</p>
+          </div>
+        </div>
+
+        <div className="mt-8 text-center text-[10px] text-gray-400">
+          Reporte de Obra - {empresa?.nombre}
+        </div>
+
+      </div>
+    </div>
+  )
+}
