@@ -4,10 +4,7 @@ import NuevoMovimiento from '@/components/NuevoMovimiento'
 import DashboardGrafico from '@/components/DashboardGrafico'
 import { Trash2, Clock, Lock, TrendingUp, Paperclip, FileText, Printer } from 'lucide-react'
 
-// ESTA LÍNEA ES LA QUE FALTABA O ESTABA MAL:
 export default async function EstadoCuenta({ params }: { params: Promise<{ id: string }> }) {
-  
-  // Desempaquetar params (Next.js 15)
   const { id } = await params
   const supabase = await createClient()
 
@@ -58,6 +55,28 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
   const saldoGlobal = totalIngresosEmpresa - totalGastosEmpresa
   const datosParaGrafico = Object.values(finanzasProyectos)
 
+  // 5. AGRUPACIÓN INTELIGENTE POR MUNI (Corrige duplicados)
+  // Creamos un diccionario donde la clave es el nombre "Limpio" (Mayúsculas y sin espacios)
+  type GrupoProyectos = { titulo: string, lista: typeof proyectosRaw }
+  
+  const gruposPorMuni = proyectosRaw?.reduce((acc, proy) => {
+    const nombreOriginal = proy.cliente || 'Otros';
+    // Normalizamos: "  Muni Flores " -> "MUNI FLORES"
+    const clave = nombreOriginal.trim().toUpperCase();
+
+    if (!acc[clave]) {
+        acc[clave] = {
+            titulo: nombreOriginal.trim().toUpperCase(), // Usamos mayúsculas para uniformizar títulos
+            lista: []
+        };
+    }
+    acc[clave]?.lista.push(proy);
+    return acc;
+  }, {} as Record<string, GrupoProyectos>) || {};
+
+  const listaGrupos = Object.values(gruposPorMuni).sort((a, b) => a.titulo.localeCompare(b.titulo));
+
+
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 p-4 md:p-8 font-sans">
       
@@ -71,7 +90,7 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
         </span>
       </div>
       
-      {/* HEADER Y BOTONES */}
+      {/* HEADER */}
       <header className="mb-8 border-b border-gray-800 pb-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
           <div>
@@ -108,24 +127,17 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
         </section>
       )}
 
-      {/* LISTA DE PROYECTOS AGRUPADOS POR MUNI */}
+      {/* LISTA DE PROYECTOS AGRUPADOS (CORREGIDA) */}
       {esAdmin && (
         <section className="mb-10 space-y-8">
-          {Object.entries(
-            proyectosRaw?.reduce((acc, proy) => {
-                const cliente = proy.cliente || 'Sin Cliente';
-                if (!acc[cliente]) acc[cliente] = [];
-                acc[cliente].push(proy);
-                return acc;
-            }, {} as Record<string, typeof proyectosRaw>) || {}
-          ).map(([cliente, proyectosDelCliente]) => (
-            <div key={cliente} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                <h3 className="text-lg font-bold text-blue-400 mb-3 uppercase tracking-wider border-b border-blue-900/30 pb-2">
-                    🏛️ {cliente}
+          {listaGrupos.map((grupo) => (
+            <div key={grupo.titulo} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <h3 className="text-lg font-bold text-blue-400 mb-3 uppercase tracking-wider border-b border-blue-900/30 pb-2 flex items-center gap-2">
+                    🏛️ {grupo.titulo}
                 </h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {proyectosDelCliente.map((proy) => {
+                    {grupo.lista.map((proy) => {
                         const datos = finanzasProyectos[proy.id] || { nombre: proy.nombre, cobrado: 0, gastado: 0 }
                         const presupuesto = Number(proy.presupuesto) || 0
                         const porcentajeCobrado = presupuesto > 0 ? (datos.cobrado / presupuesto) * 100 : 0
@@ -213,7 +225,7 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
                   </td>
 
                   <td className={`p-4 text-right font-mono font-bold ${mov.tipo === 'INGRESO' ? 'text-green-400' : 'text-red-400'}`}>
-                    {mov.tipo === 'INGRESO' ? '+' : '-'} Q {Number(mov.monto).toLocaleString()}
+                    {mov.tipo === 'INGRESO' ? '+' : '-'} Q {Number(mov.monto).toLocaleString()}` : ''}
                   </td>
 
                   <td className="p-4 text-center">
