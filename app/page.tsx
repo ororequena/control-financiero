@@ -1,7 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
 import Link from 'next/link'
 import BotonSalir from '@/components/BotonSalir'
-import { Building2, Wallet, TrendingUp, TrendingDown } from 'lucide-react'
+import { Building2, Wallet, TrendingUp, TrendingDown, Briefcase } from 'lucide-react'
 
 export default async function Home() {
   const supabase = await createClient()
@@ -12,7 +12,7 @@ export default async function Home() {
   const emailUsuario = user.email || ''
   const esAdmin = emailUsuario === 'coinorte@gmail.com'
 
-  // 1. Traer Empresas (Filtradas si no es Admin)
+  // 1. Traer Empresas
   let empresas = []
   let empresasIds: string[] = []
 
@@ -31,20 +31,31 @@ export default async function Home() {
     }
   }
 
-  // 2. CALCULAR TOTALES GLOBALES (Solo de las empresas que puedes ver)
-  // Traemos TODOS los movimientos de estas empresas para sumar
+  // 2. CALCULAR TOTALES GLOBALES (Solo de las empresas visibles)
   let totalGlobalIngresos = 0
   let totalGlobalGastos = 0
+  let totalContratadoGlobal = 0
 
   if (empresasIds.length > 0) {
+    // A. Sumar Movimientos (Flujo de Caja)
     const { data: movimientos } = await supabase
       .from('movimientos')
       .select('monto, tipo')
-      .in('empresa_id', empresasIds) // Solo sumamos de las empresas visibles
+      .in('empresa_id', empresasIds)
 
     movimientos?.forEach(m => {
       if (m.tipo === 'INGRESO') totalGlobalIngresos += Number(m.monto)
       else totalGlobalGastos += Number(m.monto)
+    })
+
+    // B. Sumar Proyectos (Valor Contratos) - NUEVO
+    const { data: proyectos } = await supabase
+      .from('proyectos')
+      .select('presupuesto')
+      .in('empresa_id', empresasIds)
+    
+    proyectos?.forEach(p => {
+      totalContratadoGlobal += Number(p.presupuesto)
     })
   }
 
@@ -61,34 +72,52 @@ export default async function Home() {
         <BotonSalir />
       </div>
 
-      {/* TARJETA DE RESUMEN GLOBAL (NUEVO) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+      {/* TARJETAS DE RESUMEN GLOBAL */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+        
+        {/* 1. VALOR CONTRATOS (NUEVO) */}
         <div className="bg-gray-900 p-6 rounded-xl border border-gray-800">
-            <p className="text-gray-400 text-xs uppercase font-bold mb-2 flex items-center gap-2">
-                <Wallet size={16} /> Saldo Consolidado
+            <p className="text-gray-400 text-xs uppercase font-bold mb-2 flex items-center gap-2 text-blue-400">
+                <Briefcase size={16} /> Total Contratado
+            </p>
+            {esAdmin ? (
+                <p className="text-2xl font-bold text-blue-300">
+                    Q {totalContratadoGlobal.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
+                </p>
+            ) : (
+                <p className="text-2xl font-bold blur-sm select-none text-gray-600">Q *******</p>
+            )}
+        </div>
+
+        {/* 2. SALDO REAL */}
+        <div className="bg-gray-900 p-6 rounded-xl border border-gray-800">
+            <p className="text-gray-400 text-xs uppercase font-bold mb-2 flex items-center gap-2 text-white">
+                <Wallet size={16} /> En Caja (Saldo)
             </p>
             {esAdmin ? (
                 <p className={`text-3xl font-bold ${saldoGlobal >= 0 ? 'text-white' : 'text-red-500'}`}>
                     Q {saldoGlobal.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                 </p>
             ) : (
-                <p className="text-2xl font-bold blur-sm select-none text-gray-600">Q *******</p>
+                <p className="text-3xl font-bold blur-sm select-none text-gray-600">Q *******</p>
             )}
         </div>
         
         {esAdmin && (
             <>
+                {/* 3. INGRESOS */}
                 <div className="bg-gray-900 p-6 rounded-xl border border-gray-800">
                     <p className="text-gray-400 text-xs uppercase font-bold mb-2 flex items-center gap-2 text-green-500">
-                        <TrendingUp size={16} /> Total Ingresos
+                        <TrendingUp size={16} /> Cobrado
                     </p>
                     <p className="text-2xl font-bold text-green-400">
                         + Q {totalGlobalIngresos.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                     </p>
                 </div>
+                {/* 4. GASTOS */}
                 <div className="bg-gray-900 p-6 rounded-xl border border-gray-800">
                     <p className="text-gray-400 text-xs uppercase font-bold mb-2 flex items-center gap-2 text-red-500">
-                        <TrendingDown size={16} /> Total Gastos
+                        <TrendingDown size={16} /> Ejecutado
                     </p>
                     <p className="text-2xl font-bold text-red-400">
                         - Q {totalGlobalGastos.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
