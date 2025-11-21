@@ -55,20 +55,29 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
   const saldoGlobal = totalIngresosEmpresa - totalGastosEmpresa
   const datosParaGrafico = Object.values(finanzasProyectos)
 
-  // 5. AGRUPACIÓN INTELIGENTE POR MUNI
-  type GrupoProyectos = { titulo: string, lista: typeof proyectosRaw }
+  // 5. AGRUPACIÓN INTELIGENTE (VERSIÓN A PRUEBA DE BALAS)
+  // Usamos any[] explícito para la lista para evitar conflictos de tipos
+  type GrupoProyectos = { titulo: string, lista: any[] }
   
   const gruposPorMuni = (proyectosRaw || []).reduce((acc, proy) => {
     const nombreOriginal = proy.cliente || 'Otros';
     const clave = nombreOriginal.trim().toUpperCase();
 
+    // 1. Si no existe, lo creamos
     if (!acc[clave]) {
         acc[clave] = {
             titulo: nombreOriginal.trim().toUpperCase(),
             lista: []
         };
     }
-    acc[clave]!.lista.push(proy); // Usamos !. porque ya garantizamos que existe
+    
+    // 2. Lo guardamos en una variable temporal y verificamos que exista
+    // Esto calma a TypeScript porque valida la existencia explícitamente
+    const grupoActual = acc[clave];
+    if (grupoActual) {
+        grupoActual.lista.push(proy);
+    }
+    
     return acc;
   }, {} as Record<string, GrupoProyectos>);
 
@@ -150,11 +159,9 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
                                 </div>
                                 
                                 <div className="flex justify-between items-start mb-4">
-                                    {/* AQUÍ ESTÁ EL CAMBIO: Quitamos 'truncate' y 'max-w' para que se lea completo */}
                                     <h3 className="font-bold text-lg text-white leading-tight mr-2 group-hover:text-blue-400 transition">
                                         {proy.nombre}
                                     </h3>
-                                    
                                     <div className="text-right shrink-0">
                                         <p className="text-xs text-gray-500">Contrato</p>
                                         <p className="font-mono font-bold text-gray-300">Q {presupuesto.toLocaleString()}</p>
