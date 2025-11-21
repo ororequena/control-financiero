@@ -2,7 +2,7 @@ import { createClient } from '@/utils/supabase/server'
 import Link from 'next/link'
 import NuevoMovimiento from '@/components/NuevoMovimiento'
 import DashboardGrafico from '@/components/DashboardGrafico'
-import GrupoMuni from '@/components/GrupoMuni' // <--- Importamos el nuevo componente
+import GrupoMuni from '@/components/GrupoMuni'
 import { Trash2, Clock, Lock, TrendingUp, Paperclip, FileText, Printer } from 'lucide-react'
 
 export default async function EstadoCuenta({ params }: { params: Promise<{ id: string }> }) {
@@ -35,10 +35,14 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
   // 4. CÁLCULOS
   let totalIngresosEmpresa = 0
   let totalGastosEmpresa = 0
+  let totalContratadoEmpresa = 0 // <--- RECUPERADO
   
   const finanzasProyectos: Record<string, { nombre: string, cobrado: number, gastado: number }> = {}
+  
+  // Sumamos presupuestos y preparamos estructura
   proyectosRaw?.forEach(p => { 
-    finanzasProyectos[p.id] = { nombre: p.nombre, cobrado: 0, gastado: 0 } 
+    finanzasProyectos[p.id] = { nombre: p.nombre, cobrado: 0, gastado: 0 }
+    totalContratadoEmpresa += Number(p.presupuesto) // <--- RECUPERADO
   })
 
   const movimientosConSaldo = movimientos?.map((mov) => {
@@ -93,21 +97,34 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
       
       {/* HEADER */}
       <header className="mb-8 border-b border-gray-800 pb-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4">
           <div>
             <h1 className="text-4xl font-bold text-white tracking-tight">{empresa?.nombre}</h1>
             <p className="text-gray-500 mt-1">Panel de Control de Obras</p>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
              <Link 
                 href={`/empresa/${id}/reporte`}
-                className="bg-white text-black hover:bg-gray-200 px-4 py-3 rounded-xl font-bold flex items-center gap-2 transition shadow-lg h-full"
+                className="bg-white text-black hover:bg-gray-200 px-4 py-4 rounded-xl font-bold flex items-center gap-2 transition shadow-lg h-full"
               >
                 <Printer size={20} /> Reporte PDF
               </Link>
 
-            <div className="text-right bg-gray-900 p-4 rounded-xl border border-gray-800 min-w-[180px]">
+            {/* KPI: TOTAL CONTRATADO (RECUPERADO) */}
+            <div className="text-right bg-gray-900 p-4 rounded-xl border border-gray-800 min-w-[150px]">
+              <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold text-blue-400">Contratos Activos</p>
+              {esAdmin ? (
+                <p className="text-2xl font-bold text-blue-300 mt-1">
+                  Q {totalContratadoEmpresa.toLocaleString('es-GT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </p>
+              ) : (
+                <div className="flex justify-end mt-2"><Lock className="text-gray-600" /></div>
+              )}
+            </div>
+
+            {/* KPI: FLUJO DE CAJA */}
+            <div className="text-right bg-gray-900 p-4 rounded-xl border border-gray-800 min-w-[150px]">
               <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Flujo de Caja</p>
               {esAdmin ? (
                 <p className={`text-3xl font-bold mt-1 ${saldoGlobal >= 0 ? 'text-green-400' : 'text-red-400'}`}>
@@ -128,7 +145,7 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
         </section>
       )}
 
-      {/* LISTA DE MUNIS DESPLEGABLES (NUEVO) */}
+      {/* LISTA DE MUNIS DESPLEGABLES */}
       {esAdmin && (
         <section className="mb-10">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
