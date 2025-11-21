@@ -2,6 +2,7 @@ import { createClient } from '@/utils/supabase/server'
 import Link from 'next/link'
 import NuevoMovimiento from '@/components/NuevoMovimiento'
 import DashboardGrafico from '@/components/DashboardGrafico'
+import GrupoMuni from '@/components/GrupoMuni' // <--- Importamos el nuevo componente
 import { Trash2, Clock, Lock, TrendingUp, Paperclip, FileText, Printer } from 'lucide-react'
 
 export default async function EstadoCuenta({ params }: { params: Promise<{ id: string }> }) {
@@ -55,29 +56,23 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
   const saldoGlobal = totalIngresosEmpresa - totalGastosEmpresa
   const datosParaGrafico = Object.values(finanzasProyectos)
 
-  // 5. AGRUPACIÓN INTELIGENTE (VERSIÓN A PRUEBA DE BALAS)
-  // Usamos any[] explícito para la lista para evitar conflictos de tipos
+  // 5. AGRUPACIÓN INTELIGENTE
   type GrupoProyectos = { titulo: string, lista: any[] }
   
   const gruposPorMuni = (proyectosRaw || []).reduce((acc, proy) => {
     const nombreOriginal = proy.cliente || 'Otros';
     const clave = nombreOriginal.trim().toUpperCase();
 
-    // 1. Si no existe, lo creamos
     if (!acc[clave]) {
         acc[clave] = {
             titulo: nombreOriginal.trim().toUpperCase(),
             lista: []
         };
     }
-    
-    // 2. Lo guardamos en una variable temporal y verificamos que exista
-    // Esto calma a TypeScript porque valida la existencia explícitamente
-    const grupoActual = acc[clave];
-    if (grupoActual) {
-        grupoActual.lista.push(proy);
+    const grupo = acc[clave];
+    if (grupo) {
+        grupo.lista.push(proy);
     }
-    
     return acc;
   }, {} as Record<string, GrupoProyectos>);
 
@@ -126,63 +121,27 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
         </div>
       </header>
 
-      {/* GRÁFICOS (SOLO ADMIN) */}
+      {/* GRÁFICOS */}
       {esAdmin && (
         <section className="animate-in fade-in slide-in-from-bottom-4 duration-700">
           <DashboardGrafico data={datosParaGrafico} />
         </section>
       )}
 
-      {/* LISTA DE PROYECTOS AGRUPADOS */}
+      {/* LISTA DE MUNIS DESPLEGABLES (NUEVO) */}
       {esAdmin && (
-        <section className="mb-10 space-y-8">
+        <section className="mb-10">
+          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+            🏛️ Proyectos por Municipalidad
+          </h2>
           {listaGrupos.map((grupo) => (
-            <div key={grupo.titulo} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                <h3 className="text-lg font-bold text-blue-400 mb-3 uppercase tracking-wider border-b border-blue-900/30 pb-2 flex items-center gap-2">
-                    🏛️ {grupo.titulo}
-                </h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {grupo.lista.map((proy) => {
-                        const datos = finanzasProyectos[proy.id] || { nombre: proy.nombre, cobrado: 0, gastado: 0 }
-                        const presupuesto = Number(proy.presupuesto) || 0
-                        const porcentajeCobrado = presupuesto > 0 ? (datos.cobrado / presupuesto) * 100 : 0
-
-                        return (
-                            <Link 
-                                href={`/empresa/${id}/proyecto/${proy.id}`}
-                                key={proy.id} 
-                                className="bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-blue-500 transition relative overflow-hidden group cursor-pointer block h-full"
-                            >
-                                <div className="absolute top-0 left-0 h-1 bg-gray-800 w-full">
-                                    <div className={`h-full ${porcentajeCobrado > 100 ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: `${Math.min(porcentajeCobrado, 100)}%` }}></div>
-                                </div>
-                                
-                                <div className="flex justify-between items-start mb-4">
-                                    <h3 className="font-bold text-lg text-white leading-tight mr-2 group-hover:text-blue-400 transition">
-                                        {proy.nombre}
-                                    </h3>
-                                    <div className="text-right shrink-0">
-                                        <p className="text-xs text-gray-500">Contrato</p>
-                                        <p className="font-mono font-bold text-gray-300">Q {presupuesto.toLocaleString()}</p>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4 mb-2 text-sm mt-auto">
-                                    <div className="bg-gray-950/50 p-2 rounded border border-gray-800/50">
-                                        <p className="text-xs text-green-400 mb-1">Cobrado</p>
-                                        <p className="font-mono font-bold text-white">Q {datos.cobrado.toLocaleString()}</p>
-                                    </div>
-                                    <div className="bg-gray-950/50 p-2 rounded border border-gray-800/50">
-                                        <p className="text-xs text-red-400 mb-1">Gastado</p>
-                                        <p className="font-mono font-bold text-white">Q {datos.gastado.toLocaleString()}</p>
-                                    </div>
-                                </div>
-                            </Link>
-                        )
-                    })}
-                </div>
-            </div>
+            <GrupoMuni 
+                key={grupo.titulo}
+                titulo={grupo.titulo}
+                proyectos={grupo.lista}
+                finanzas={finanzasProyectos}
+                empresaId={id}
+            />
           ))}
         </section>
       )}
