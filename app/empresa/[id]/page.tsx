@@ -55,14 +55,14 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
   const saldoGlobal = totalIngresosEmpresa - totalGastosEmpresa
   const datosParaGrafico = Object.values(finanzasProyectos)
 
-  // 5. AGRUPACIÓN INTELIGENTE (CORREGIDO PARA TYPESCRIPT STRICTO)
-  type GrupoProyectos = { titulo: string, lista: typeof proyectosRaw }
+  // 5. AGRUPACIÓN INTELIGENTE (FIXED TYPESCRIPT)
+  // Cambiamos el tipo de lista a 'any[]' para evitar que TS piense que es null
+  type GrupoProyectos = { titulo: string, lista: any[] }
   
   const gruposPorMuni = (proyectosRaw || []).reduce((acc, proy) => {
     const nombreOriginal = proy.cliente || 'Otros';
     const clave = nombreOriginal.trim().toUpperCase();
 
-    // Si no existe el grupo, lo creamos
     if (!acc[clave]) {
         acc[clave] = {
             titulo: nombreOriginal.trim().toUpperCase(),
@@ -70,11 +70,8 @@ export default async function EstadoCuenta({ params }: { params: Promise<{ id: s
         };
     }
     
-    // Accedemos de forma segura
-    const grupo = acc[clave];
-    if (grupo) {
-        grupo.lista.push(proy);
-    }
+    // Al usar any[] arriba, TS ya nos deja hacer push sin miedo
+    acc[clave].lista.push(proy);
     
     return acc;
   }, {} as Record<string, GrupoProyectos>);
